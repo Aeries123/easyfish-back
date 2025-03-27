@@ -1,0 +1,252 @@
+@host="http://127.0.0.1:5000"
+#Admin ,customer -Registration
+POST http://127.0.0.1:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "nandu",
+  "email": "nandu@gmail.com",
+  "phone": "7245563412",
+  "password": "password",
+  "role": "admin"
+}
+###
+
+POST http://127.0.0.1:5000/api/customers/register
+Content-Type: application/json
+
+{
+    "name": "manju",
+    "email": "manju@gmail.com",
+    "phone": "956567890",
+    "password": "password",
+    "profile_picture":"static/uploads/fish9.png"
+}
+
+
+
+###
+
+GET http://127.0.0.1:5000/api/customers
+
+
+
+###
+#Admin Login
+
+
+POST http://127.0.0.1:5000/api/admin/login
+Content-Type: application/json
+
+{
+    "phone": "7245563412",
+    "password": "password"
+}
+
+
+###
+
+#Agent Registrartion
+
+
+
+
+###
+
+
+#customer Login
+POST http://127.0.0.1:5000/api/customer_login
+Content-Type: application/json
+
+{
+  "phone": "7995357141",
+  "password": "password"
+}
+
+
+
+
+
+
+
+
+
+###
+
+
+POST http://127.0.0.1:5000/api/addresses
+Content-Type: application/json
+
+{
+    "customer_id": 10,
+    "address": "456 Elm St",
+    "city": "Los ",
+    "state": "CA",
+    "zip_code": "90001",
+    "address_type": "work"
+}
+
+###
+PUT http://127.0.0.1:5000/api/addresses/1
+Content-Type: application/json
+
+{
+    "customer_id": 9,
+    "address": "456 Elm St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zip_code": "9222001",
+    "address_type": "work"
+}
+
+
+
+###
+
+GET http://127.0.0.1:5000/api/addresses
+
+
+###
+
+DELETE http://127.0.0.1:5000/api/addresses/2
+
+
+
+###
+
+POST http://127.0.0.1:5000/api/categories
+Content-Type: application/json
+ 
+{
+  "name": "Fish"
+}
+
+###
+
+#update_Categories
+
+PUT http://127.0.0.1:5000/api/categories/2
+Content-Type: application/json
+ 
+{
+  "name": "Stationery"
+}
+
+
+#delete categories
+###
+DELETE http://127.0.0.1:5000/api/categories/9
+ 
+ 
+
+#get_Categories
+
+
+###
+GET http://127.0.0.1:5000/api/categories
+
+###
+
+POST http://127.0.0.1:5000/api/orders_with_items
+Content-Type: application/json
+
+{
+  "customer_id": 9,
+  "order_items": [
+    {
+      "variant_id": 1,
+      "quantity": 2,
+      "price": 125.50
+    },
+    {
+      "variant_id": 1,
+      "quantity": 1,
+      "price": 50.00
+    }
+  ]
+}
+
+###
+
+
+PUT  http://127.0.0.1:5000/api/orders/1
+Content-Type: application/json
+ 
+{
+  "customer_id": 9,
+  "total_price": 350.75,
+  "status": "Pending"
+}
+
+###
+
+DELETE http://127.0.0.1:5000/api/orders/4
+ 
+ 
+
+#get_Categories
+
+
+###
+GET http://127.0.0.1:5000/api/orders/1
+
+###
+
+POST http://127.0.0.1:5000/api/order_items
+Content-Type: application/json
+
+{
+  "order_id": 3,
+  "variant_id": 1,
+  "quantity": 2,
+  "price": 125.50
+}
+###
+
+
+POST http://127.0.0.1:5000/api/products
+Content-Type: application/json
+
+{
+  "category_id": 7,
+  "product_name": "Fish",
+  "description": "High-performance laptop for gaming",
+  "added_by": "Admin"
+}
+
+
+###
+
+GET http://127.0.0.1:5000/api/products
+###
+
+GET http://127.0.0.1:5000/api/products/1
+###
+
+GET http://127.0.0.1:5000/api/products/1
+###
+
+PUT http://127.0.0.1:5000/api/products/1
+Content-Type: application/json
+
+{
+  "category_id": 3,
+  "product_name": "Ultra Gaming Laptop",
+  "description": "Updated high-performance laptop for gaming",
+  "added_by": "Admin"
+}
+###
+
+DELETE http://127.0.0.1:5000/api/products/1
+###
+
+
+POST http://127.0.0.1:5000/api/variants
+Content-Type: application/json
+
+{
+  "product_id": 3,
+  "weight": 1.5,
+  "price": 500.00,
+  "available_stock": 100
+}

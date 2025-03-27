@@ -1,0 +1,354 @@
+@host="http://127.0.0.1:5000"
+#Admin ,customer -Registration
+POST http://127.0.0.1:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "nandu",
+  "email": "nandu@gmail.com",
+  "phone": "7245563412",
+  "password": "password",
+  "role": "admin"
+}
+###
+
+POST http://127.0.0.1:5000/api/customers/register
+Content-Type: application/json
+
+{
+    "name": "John",
+    "email": "john@.com",
+    "phone": "9872543210",
+    "password": "password",
+    "profile_picture": "profile_pic_url.jpg",
+    "address": [
+        {
+            "address": "123 Main Street",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10001",
+            "address_type": "home"
+        },
+        {
+            "address": "456 Work Ave",
+            "city": "Los Angeles",
+            "state": "CA",
+            "zip_code": "90001",
+            "address_type": "work"
+        }
+    ]
+}
+
+
+
+
+
+###
+
+
+
+
+
+GET http://127.0.0.1:5000/api/customers
+
+
+###
+GET http://127.0.0.1:5000/api/payments
+###
+
+GET http://127.0.0.1:5000/api/reviews
+
+###
+
+GET http://127.0.0.1:5000/api/reviews/date?from_date=2025-03-17&to_date=2025-03-17
+ 
+###
+
+DELETE http://127.0.0.1:5000/api/reviews/1
+###
+
+GET http://127.0.0.1:5000/api/payments/date?from_date=2025-03-18&to_date=2025-03-24
+
+
+###
+GET http://127.0.0.1:5000/api/payments/1
+
+###
+POST http://127.0.0.1:5000/api/admin/login
+Content-Type: application/json
+
+{
+    "phone": "7245563412",
+    "password": "password"
+}
+
+
+###
+
+#Agent Registrartion
+
+
+
+
+###
+
+
+#customer Login
+POST http://127.0.0.1:5000/api/customer_login
+Content-Type: application/json
+
+{
+  "phone": "9872543210",
+  "password": "password"
+}
+
+
+
+
+
+
+
+
+
+###
+
+
+POST http://127.0.0.1:5000/api/addresses
+Content-Type: application/json
+
+{
+    "customer_id": 26,
+    "address": "456 Elm St",
+    "city": "Los ",
+    "state": "CA",
+    "zip_code": "90001",
+    "address_type": "work"
+}
+
+###
+PUT http://127.0.0.1:5000/api/addresses/1
+Content-Type: application/json
+
+{
+    "customer_id": 9,
+    "address": "456 Elm St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zip_code": "9222001",
+    "address_type": "work"
+}
+
+
+
+###
+
+GET http://127.0.0.1:5000/api/addresses
+
+
+###
+
+DELETE http://127.0.0.1:5000/api/addresses/2
+
+
+
+###
+
+POST http://127.0.0.1:5000/api/categories
+Content-Type: application/json
+ 
+{
+  "name": "Fish"
+}
+
+###
+
+#update_Categories
+
+PUT http://127.0.0.1:5000/api/categories/5
+Content-Type: multipart/form-data
+
+{
+  "category_name": "Fishhhh",
+  "image": "fish2.jpg"
+}
+
+
+#delete categories
+###
+DELETE http://127.0.0.1:5000/api/categories/9
+ 
+ 
+
+#get_Categories
+
+
+###
+GET http://127.0.0.1:5000/api/categories
+
+
+
+###
+
+GET http://127.0.0.1:5000/api/categories/5
+
+
+###
+
+POST http://127.0.0.1:5000/api/orders_with_items
+Content-Type: application/json
+
+{
+  "customer_id": 9,
+  "order_items": [
+    {
+      "variant_id": 1,
+      "quantity": 2,
+      "price": 125.50
+    },
+    {
+      "variant_id": 1,
+      "quantity": 1,
+      "price": 50.00
+    }
+  ]
+}
+
+###
+
+
+
+
+POST http://127.0.0.1:5000/api/orders
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MjgsImN1c3RvbWVyX25hbWUiOiJKb2huIiwidXNlcl9pZCI6MzgsImV4cCI6MTc0MzA2MTQwN30.VnIDtoFyx5cCB3KjxITVJ0M5FN3EZoycSN436pcziGI
+
+{
+  "total_price": 1500,
+  "status": "Pending",
+
+  "items": [
+      {
+          "variant_id": 13,
+          "quantity": 2,
+          "price": 500,
+          "total": 1000
+      },
+      {
+          "variant_id": 14,
+          "quantity": 1,
+          "price": 500,
+          "total": 500
+      }
+  ],
+  "payment_method": "Credit Card",
+  "transaction_id": "TX1152456820" 
+}
+###
+
+
+GET  http://127.0.0.1:5000/api/notifications
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MTAsImN1c3RvbWVyX25hbWUiOiJNYWhlc2giLCJ1c2VyX2lkIjoxNSwiZXhwIjoxNzQyOTY5MDQ4fQ.FQuqmw3cuGwzmMrZNQuQwZvTvWJfZpWnq0KQsbr7KdI
+
+
+###
+PUT  http://127.0.0.1:5000/api/orders/1
+Content-Type: application/json
+ 
+{
+  "customer_id": 9,
+  "total_price": 350.75,
+  "status": "Pending"
+}
+
+###
+
+DELETE http://127.0.0.1:5000/api/orders/2
+ 
+ 
+
+#get_Categories
+
+
+###
+GET http://127.0.0.1:5000/api/orders/5
+
+###
+
+GET http://127.0.0.1:5000/api/orders
+
+###
+
+
+GET http://127.0.0.1:5000/api/book-a-orders?fromDate=2025-03-12&toDate=2025-03-19
+
+###
+
+POST http://127.0.0.1:5000/api/order_items
+Content-Type: application/json
+
+{
+  "order_id": 3,
+  "variant_id": 1,
+  "quantity": 2,
+  "price": 125.50
+}
+###
+
+
+POST http://127.0.0.1:5000/api/products
+Content-Type: application/json
+
+{
+  "category_name": "Fish",
+  "product_name": "Gold Fish",
+  "description": "gold fish",
+  "added_by": "Admin"
+}
+
+
+###
+
+GET http://127.0.0.1:5000/api/products
+
+
+
+###
+
+GET http://127.0.0.1:5000/api/best_selling_products
+
+###
+
+GET http://127.0.0.1:5000/api/products/14
+###
+
+GET http://127.0.0.1:5000/api/products
+###
+
+PUT http://127.0.0.1:5000/api/products/1
+Content-Type: application/json
+
+{
+  "category_name": "Fish",
+  "product_name": "Ultra Gaming Laptop",
+  "description": "Updated high-performance laptop for gaming",
+  "added_by": "Admin"
+}
+###
+
+DELETE http://127.0.0.1:5000/api/products/1
+###
+
+
+# POST http://127.0.0.1:5000/api/variants
+# Content-Type: application/json
+
+# {
+#   "product_id": 3,
+#   "weight": 1.5,
+#   "price": 500.00,
+#   "available_stock": 100
+# }
+###
+
+
+ GET http://127.0.0.1:5000/api/admin/notifications
