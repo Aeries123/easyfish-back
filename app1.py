@@ -21,7 +21,7 @@ import MySQLdb.cursors  # ✅ Import DictCursor
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins="http://localhost:3001")
+CORS(app, supports_credentials=True, origins="http://localhost:3004")
 
 
 
@@ -394,31 +394,32 @@ def delete_review(review_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/orders', methods=['GET'])
+@app.route('/api/orders', methods=['GET']) 
 def get_all_orders():
     try:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
- 
-        # ✅ Fetch all orders
+
+        # ✅ Fetch all orders, now including delivery boy name
         cursor.execute("""
             SELECT
                 o.order_id, o.order_date, o.total_price, o.status,
+                o.assign,  -- this is delivery_boy_id
+                db.name AS delivery_boy_name,  -- join to get name
                 c.customer_id, c.name AS customer_name
             FROM orders o
             JOIN customers c ON o.customer_id = c.customer_id
+            LEFT JOIN delivery_boys db ON o.assign = db.delivery_boy_id
             ORDER BY o.order_id DESC;
         """)
         orders_data = cursor.fetchall()
- 
+
         if not orders_data:
-            return jsonify([]), 200  # Return empty list if no orders found
- 
-        # ✅ Fetch order items with product details
+            return jsonify([]), 200
+
         order_ids = tuple(order["order_id"] for order in orders_data)
         if not order_ids:
-            return jsonify(orders_data), 200  # No orders found
- 
+            return jsonify(orders_data), 200
+
         query_placeholders = ', '.join(['%s'] * len(order_ids))
         cursor.execute(f"""
             SELECT
@@ -431,29 +432,27 @@ def get_all_orders():
             WHERE oi.order_id IN ({query_placeholders})
         """, order_ids)
         order_items_data = cursor.fetchall()
- 
-        # ✅ Fetch product images
+
         cursor.execute("SELECT product_id, image_url FROM product_images")
         images_data = cursor.fetchall()
         cursor.close()
- 
-        # ✅ Base URL for images (adjust as needed)
+
         base_url = "http://127.0.0.1:5000/static/uploads/"
- 
-        # ✅ Convert fetched data into dictionaries
+
         orders = {row["order_id"]: {
             "order_id": row["order_id"],
             "order_date": row["order_date"],
             "total_price": row["total_price"],
             "status": row["status"],
+            "assign": row["assign"],
+            "delivery_boy_name": row["delivery_boy_name"],  # ✅ Include delivery boy name
             "customer": {
                 "customer_id": row["customer_id"],
                 "name": row["customer_name"]
             },
             "items": []
         } for row in orders_data}
- 
-        # ✅ Create a dictionary for product images
+
         product_images = {}
         for img in images_data:
             product_id = img["product_id"]
@@ -461,8 +460,7 @@ def get_all_orders():
                 product_images[product_id] = []
             if img["image_url"]:
                 product_images[product_id].append(f"{base_url}{img['image_url']}")
- 
-        # ✅ Process order items and attach images
+
         for item in order_items_data:
             order_id = item["order_id"]
             product_id = item["product_id"]
@@ -479,16 +477,66 @@ def get_all_orders():
                     "stock_quantity": item["stock_quantity"],
                     "price": float(item["variant_price"])
                 },
-                "images": product_images.get(product_id, [])  # Attach images from product_images dict
+                "images": product_images.get(product_id, [])
             }
             orders[order_id]["items"].append(order_item)
- 
+
         return jsonify(list(orders.values())), 200
- 
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
- 
 
+
+
+
+@app.route('/api/orders/assigned', methods=['GET'])
+def get_assigned_orders():
+    try:
+        # Use DictCursor for dictionary-style results
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        query = """
+            SELECT 
+                o.order_id,
+                o.customer_id,
+                o.total_price,
+                o.status,
+                o.order_date,
+                o.delivery_boy_id,
+                o.assign,
+                c.name AS customer_name,
+                d.name AS delivery_boy_name
+            FROM orders o
+            LEFT JOIN customers c ON o.customer_id = c.customer_id
+            LEFT JOIN delivery_boys d ON o.delivery_boy_id = d.delivery_boy_id
+            WHERE o.assign = 'assigned'
+            ORDER BY o.order_date DESC
+        """
+        cursor.execute(query)
+        orders = cursor.fetchall()
+        cursor.close()
+
+        formatted_orders = [
+            {
+                'order_id': order['order_id'],
+                'customer': {
+                    'name': order['customer_name']
+                },
+                'order_date': order['order_date'],
+                'assign': order['assign'],
+                'delivery_boy_name': order['delivery_boy_name'],
+                'status': order['status'],
+                'total_price': float(order['total_price']) if order['total_price'] else 0.0
+            }
+            for order in orders
+        ]
+
+        return jsonify(formatted_orders), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    
 # @app.route('/api/orders', methods=['POST'])
 # @token_required
 # def place_order():
@@ -550,7 +598,78 @@ def get_all_orders():
 
 
 
-@app.route('/api/orders', methods=['POST'])
+# @app.route('/api/orders', methods=['POST'])
+# @token_required
+# def place_order():
+#     try:
+#         data = request.json
+#         total_price = data.get("total_price")
+#         order_items = data.get("items")
+#         payment_method = data.get("payment_method")
+#         transaction_id = data.get("transaction_id")
+
+#         if not total_price or not order_items or not payment_method:
+#             return jsonify({"error": "Missing required fields"}), 400
+
+#         user_id = g.user["user_id"]  # Extract user ID from token
+#         customer_id = g.user["customer_id"]  # Extract customer ID from token
+#         customer_name = g.user["customer_name"]  # Extract customer name from token
+
+#         cur = mysql.connection.cursor()
+
+#         # ✅ Insert order
+#         insert_order_query = """
+#             INSERT INTO orders (customer_id, total_price, status)
+#             VALUES (%s, %s, %s)
+#         """
+#         cur.execute(insert_order_query, (customer_id, total_price, "Pending"))
+#         order_id = cur.lastrowid  # Get newly inserted order ID
+
+#         # ✅ Insert order items
+#         insert_order_item_query = """
+#             INSERT INTO order_items (order_id, variant_id, quantity, price, total)
+#             VALUES (%s, %s, %s, %s, %s)
+#         """
+#         for item in order_items:
+#             cur.execute(insert_order_item_query,
+#                         (order_id, item["variant_id"], item["quantity"], item["price"], item["total"]))
+
+#         # ✅ Insert Payment
+#         payment_status = "Completed" if transaction_id else "Pending"
+#         insert_payment_query = """
+#             INSERT INTO payments (order_id, customer_id, amount, payment_method, transaction_id, status)
+#             VALUES (%s, %s, %s, %s, %s, %s)
+#         """
+#         cur.execute(insert_payment_query, (order_id, customer_id, total_price, payment_method, transaction_id, payment_status))
+
+#         # ✅ Insert notification for Admin
+#         admin_id = 14  # Replace with actual admin user ID if dynamic
+#         admin_message = f"New order received. Order ID: {order_id}, Customer: {customer_name}."
+#         insert_admin_notification_query = """
+#             INSERT INTO notifications (user_id, title, message, is_read, created_at)
+#             VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+#         """
+#         cur.execute(insert_admin_notification_query, (admin_id, "New Order", admin_message, 0))
+
+#         # ✅ Insert notification for Customer
+#         customer_message = f"Your order has been placed successfully. Order ID: {order_id}."
+#         insert_customer_notification_query = """
+#             INSERT INTO notifications (user_id, title, message, is_read, created_at)
+#             VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+#         """
+#         cur.execute(insert_customer_notification_query, (user_id, "Order Confirmation", customer_message, 0))
+
+#         mysql.connection.commit()
+#         cur.close()
+
+#         return jsonify({"message": "Order placed successfully", "order_id": order_id, "payment_status": payment_status}), 201
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+
+
+@app.route('/api/orders', methods=['POST']) 
 @token_required
 def place_order():
     try:
@@ -559,23 +678,26 @@ def place_order():
         order_items = data.get("items")
         payment_method = data.get("payment_method")
         transaction_id = data.get("transaction_id")
+        delivery_boy_id = data.get("delivery_boy_id")  # ✅ new field from frontend
 
         if not total_price or not order_items or not payment_method:
             return jsonify({"error": "Missing required fields"}), 400
 
-        user_id = g.user["user_id"]  # Extract user ID from token
-        customer_id = g.user["customer_id"]  # Extract customer ID from token
-        customer_name = g.user["customer_name"]  # Extract customer name from token
+        user_id = g.user["user_id"]  # from token
+        customer_id = g.user["customer_id"]
+        customer_name = g.user["customer_name"]
+
+        assign_status = "assigned" if delivery_boy_id else "not_assigned"
 
         cur = mysql.connection.cursor()
 
-        # ✅ Insert order
+        # ✅ Insert into orders table
         insert_order_query = """
-            INSERT INTO orders (customer_id, total_price, status)
-            VALUES (%s, %s, %s)
+            INSERT INTO orders (customer_id, total_price, status, delivery_boy_id, assign)
+            VALUES (%s, %s, %s, %s, %s)
         """
-        cur.execute(insert_order_query, (customer_id, total_price, "Pending"))
-        order_id = cur.lastrowid  # Get newly inserted order ID
+        cur.execute(insert_order_query, (customer_id, total_price, "Pending", delivery_boy_id, assign_status))
+        order_id = cur.lastrowid
 
         # ✅ Insert order items
         insert_order_item_query = """
@@ -586,7 +708,7 @@ def place_order():
             cur.execute(insert_order_item_query,
                         (order_id, item["variant_id"], item["quantity"], item["price"], item["total"]))
 
-        # ✅ Insert Payment
+        # ✅ Insert payment
         payment_status = "Completed" if transaction_id else "Pending"
         insert_payment_query = """
             INSERT INTO payments (order_id, customer_id, amount, payment_method, transaction_id, status)
@@ -594,8 +716,8 @@ def place_order():
         """
         cur.execute(insert_payment_query, (order_id, customer_id, total_price, payment_method, transaction_id, payment_status))
 
-        # ✅ Insert notification for Admin
-        admin_id = 14  # Replace with actual admin user ID if dynamic
+        # ✅ Insert admin notification
+        admin_id = 14  # static admin ID
         admin_message = f"New order received. Order ID: {order_id}, Customer: {customer_name}."
         insert_admin_notification_query = """
             INSERT INTO notifications (user_id, title, message, is_read, created_at)
@@ -603,7 +725,7 @@ def place_order():
         """
         cur.execute(insert_admin_notification_query, (admin_id, "New Order", admin_message, 0))
 
-        # ✅ Insert notification for Customer
+        # ✅ Insert customer notification
         customer_message = f"Your order has been placed successfully. Order ID: {order_id}."
         insert_customer_notification_query = """
             INSERT INTO notifications (user_id, title, message, is_read, created_at)
@@ -614,13 +736,14 @@ def place_order():
         mysql.connection.commit()
         cur.close()
 
-        return jsonify({"message": "Order placed successfully", "order_id": order_id, "payment_status": payment_status}), 201
+        return jsonify({
+            "message": "Order placed successfully",
+            "order_id": order_id,
+            "payment_status": payment_status
+        }), 201
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-
 
 
 
@@ -933,31 +1056,43 @@ def customer_login():
 
 
 
-
 @app.route('/api/customer_details', methods=['GET'])
 @token_required
 def get_customer_details():
     customer_id = g.user.get("customer_id")  # Access customer_id from token payload
- 
+
     conn = mysql.connection
     cursor = conn.cursor()
- 
-    cursor.execute("SELECT name, email, profile_picture FROM customers WHERE customer_id = %s", (customer_id,))
+
+    cursor.execute("""
+        SELECT c.name, c.email,c.phone, c.profile_picture, a.address, a.city, a.state, a.zip_code
+        FROM customers c
+        LEFT JOIN addresses a ON c.customer_id = a.customer_id
+        WHERE c.customer_id = %s
+    """, (customer_id,))
+    
     customer = cursor.fetchone()
- 
+
     if not customer:
         return jsonify({"error": "Customer not found"}), 404
- 
-    name, email, profile_picture = customer
- 
+
+    print(customer)
+
+    name, email,phone, profile_picture, address, city, state, zip_code = customer
+
     return jsonify({
         "customer_id": customer_id,
         "customer_name": name,
         "email": email,
-        "profile_picture": profile_picture
+        "phone": phone,
+        "profile_picture": profile_picture,
+        "address": {
+            "street": address,
+            "city": city,
+            "state": state,
+            "zip_code": zip_code
+        }
     }), 200
- 
-
 
 
 # ---------------------- Add Address ----------------------
@@ -1879,6 +2014,177 @@ def mark_notification_as_read(notification_id):
  
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+# Create Delivery Boy
+@app.route('/api/delivery_boys', methods=['POST'])
+def create_delivery_boy():
+    try:
+        name = request.json.get('name')
+        phone = request.json.get('phone')
+
+        if not name or not phone:
+            return jsonify({"error": "Name and phone are required"}), 400
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("INSERT INTO delivery_boys (name, phone) VALUES (%s, %s)", (name, phone))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"message": "Delivery boy created"}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Get All Delivery Boys
+@app.route('/api/delivery_boys', methods=['GET'])
+def get_delivery_boys():
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM delivery_boys")
+        results = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        delivery_boys = [dict(zip(column_names, row)) for row in results]
+        cursor.close()
+        return jsonify({"delivery_boys": delivery_boys}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/orders/<int:order_id>/assign", methods=["PUT"])
+def assign_delivery_boy(order_id):
+    data = request.json
+    delivery_boy_id = data.get("delivery_boy_id")
+
+    if not delivery_boy_id:
+        return jsonify({"error": "Missing delivery boy ID"}), 400
+
+    # Example query - adjust for your DB setup
+    cur = mysql.connection.cursor()
+    cur.execute("UPDATE orders SET delivery_boy_id=%s, assign='assigned' WHERE order_id=%s", 
+                (delivery_boy_id, order_id))
+    mysql.connection.commit()
+    cur.close()
+
+    return jsonify({"message": "Delivery boy assigned successfully."})
+
+
+
+
+
+
+# Update Delivery Boy
+@app.route('/api/delivery_boys/<int:id>', methods=['PUT'])
+def update_delivery_boy(id):
+    try:
+        name = request.json.get('name')
+        phone = request.json.get('phone')
+        is_active = request.json.get('is_active')
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            UPDATE delivery_boys 
+            SET name = %s, phone = %s, is_active = %s 
+            WHERE delivery_boy_id = %s
+        """, (name, phone, is_active, id))
+        mysql.connection.commit()
+        cursor.close()
+
+        return jsonify({"message": "Delivery boy updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Delete Delivery Boy
+@app.route('/api/delivery_boys/<int:id>', methods=['DELETE'])
+def delete_delivery_boy(id):
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("DELETE FROM delivery_boys WHERE delivery_boy_id = %s", (id,))
+        mysql.connection.commit()
+        cursor.close()
+
+        return jsonify({"message": "Delivery boy deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+# Create OTP for Order
+@app.route('/api/order_otps', methods=['POST'])
+def create_order_otp():
+    try:
+        order_id = request.json.get('order_id')
+        otp_code = request.json.get('otp_code')  # Should be generated randomly ideally
+        expires_in_minutes = request.json.get('expires_in', 5)
+
+        expires_at = datetime.now() + timedelta(minutes=expires_in_minutes)
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            INSERT INTO order_otps (order_id, otp_code, expires_at)
+            VALUES (%s, %s, %s)
+        """, (order_id, otp_code, expires_at))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"message": "OTP created"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Get All OTPs
+@app.route('/api/order_otps', methods=['GET'])
+def get_order_otps():
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM order_otps")
+        results = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        otps = [dict(zip(column_names, row)) for row in results]
+        cursor.close()
+        return jsonify({"order_otps": otps}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Update OTP (e.g., mark as used)
+@app.route('/api/order_otps/<int:id>', methods=['PUT'])
+def update_order_otp(id):
+    try:
+        is_used = request.json.get('is_used', True)
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("UPDATE order_otps SET is_used = %s WHERE otp_id = %s", (is_used, id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"message": "OTP updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Delete OTP
+@app.route('/api/order_otps/<int:id>', methods=['DELETE'])
+def delete_order_otp(id):
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("DELETE FROM order_otps WHERE otp_id = %s", (id,))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"message": "OTP deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
 
 
 

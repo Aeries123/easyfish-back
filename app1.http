@@ -52,6 +52,16 @@ Content-Type: application/json
 GET http://127.0.0.1:5000/api/customers
 
 
+
+###
+
+GET http://127.0.0.1:5000/api/customer_details
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MjgsImN1c3RvbWVyX25hbWUiOiJKb2huIiwidXNlcl9pZCI6MzgsImV4cCI6MTc0MzIzNzQ2N30.wgfkMdYWaRdsyymsVIyk9wiNeZoqprSaoBJnf9QXLs0
+
+
+###
+
+
 ###
 GET http://127.0.0.1:5000/api/payments
 ###
@@ -67,7 +77,7 @@ GET http://127.0.0.1:5000/api/reviews/date?from_date=2025-03-17&to_date=2025-03-
 DELETE http://127.0.0.1:5000/api/reviews/1
 ###
 
-GET http://127.0.0.1:5000/api/payments/date?from_date=2025-03-18&to_date=2025-03-24
+GET http://127.0.0.1:5000/api/payments/date?from_date=2025-03-04&to_date=2025-03-04
 
 
 ###
@@ -220,7 +230,7 @@ Content-Type: application/json
 
 POST http://127.0.0.1:5000/api/orders
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MjgsImN1c3RvbWVyX25hbWUiOiJKb2huIiwidXNlcl9pZCI6MzgsImV4cCI6MTc0MzA2MTQwN30.VnIDtoFyx5cCB3KjxITVJ0M5FN3EZoycSN436pcziGI
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MjgsImN1c3RvbWVyX25hbWUiOiJKb2huIiwidXNlcl9pZCI6MzgsImV4cCI6MTc0NDExOTU1MH0.bQH0bcZ_FgkW0Cx4HpvXn6Jrhp_5Yt7K1zCk9hi8IMw
 
 {
   "total_price": 1500,
@@ -241,7 +251,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZ
       }
   ],
   "payment_method": "Credit Card",
-  "transaction_id": "TX1152456820" 
+  "transaction_id": "TX152456820",
+  "delivery_boy_id": 1
+ 
 }
 ###
 
@@ -275,6 +287,11 @@ GET http://127.0.0.1:5000/api/orders/5
 ###
 
 GET http://127.0.0.1:5000/api/orders
+
+
+###
+
+GET http://127.0.0.1:5000/api/orders/assigned
 
 ###
 
@@ -348,7 +365,22 @@ DELETE http://127.0.0.1:5000/api/products/1
 #   "price": 500.00,
 #   "available_stock": 100
 # }
+
 ###
 
 
- GET http://127.0.0.1:5000/api/admin/notifications
+GET http://127.0.0.1:5000/api/admin/notifications
+
+###
+
+Post http://127.0.0.1:5000/api/delivery_boys
+Content-Type: application/json
+
+{
+  "name": "ramu",
+  "phone": "4823692110"
+}
+
+###
+
+GET http://127.0.0.1:5000/api/delivery_boys
