@@ -12,18 +12,13 @@ from dotenv import load_dotenv
 import os
 from werkzeug.utils import secure_filename
 from MySQLdb.cursors import DictCursor  # ✅ Import DictCursor
-from datetime import datetime, timedelta
 import json
 import MySQLdb.cursors  # ✅ Import DictCursor
-
-
-
+# import datetime
 
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins="http://localhost:3004")
-
-
 
 # Set up MySQL configurations using environment variables
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
@@ -32,6 +27,8 @@ app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
 
 mysql = MySQL(app)
+
+# SECRET_KEY = 'your_very_secret_key'
 
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
@@ -403,14 +400,16 @@ def get_all_orders():
         cursor.execute("""
             SELECT
                 o.order_id, o.order_date, o.total_price, o.status,
-                o.assign,  -- this is delivery_boy_id
-                db.name AS delivery_boy_name,  -- join to get name
+                o.assign,
+                o.delivery_boy_id,
+                db.name AS delivery_boy_name,
                 c.customer_id, c.name AS customer_name
             FROM orders o
             JOIN customers c ON o.customer_id = c.customer_id
-            LEFT JOIN delivery_boys db ON o.assign = db.delivery_boy_id
+            LEFT JOIN delivery_boys db ON o.delivery_boy_id = db.delivery_boy_id
             ORDER BY o.order_id DESC;
         """)
+
         orders_data = cursor.fetchall()
 
         if not orders_data:
@@ -1448,14 +1447,20 @@ def get_order(order_id):
     try:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-        # Fetch order details along with the customer name
+        # Fetch order details along with the customer and delivery boy name
         cursor.execute("""
-            SELECT o.*, c.name AS customer_name, c.email,c.
-                       phone
+            SELECT 
+                o.*, 
+                c.name AS customer_name, 
+                c.email,
+                c.phone,
+                db.name AS delivery_boy_name
             FROM orders o 
             JOIN customers c ON o.customer_id = c.customer_id
+            LEFT JOIN delivery_boys db ON o.delivery_boy_id = db.delivery_boy_id
             WHERE o.order_id = %s
         """, (order_id,))
+
         order = cursor.fetchone()
 
         if not order:
@@ -2025,20 +2030,39 @@ def mark_notification_as_read(notification_id):
 @app.route('/api/delivery_boys', methods=['POST'])
 def create_delivery_boy():
     try:
-        name = request.json.get('name')
-        phone = request.json.get('phone')
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
+        address = data.get('address')
+        password = data.get('password')  # You should hash this in production
 
-        if not name or not phone:
-            return jsonify({"error": "Name and phone are required"}), 400
+        # Validate required fields
+        if not all([name, email, phone, address, password]):
+            return jsonify({"success": False, "message": "All fields are required"}), 400
 
         cursor = mysql.connection.cursor()
-        cursor.execute("INSERT INTO delivery_boys (name, phone) VALUES (%s, %s)", (name, phone))
+
+        # Optional: Check if email already exists
+        cursor.execute("SELECT * FROM delivery_boys WHERE email = %s", (email,))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            cursor.close()
+            return jsonify({"success": False, "message": "Email already registered"}), 409
+
+        # Insert new delivery agent
+        cursor.execute("""
+            INSERT INTO delivery_boys (name, email, phone, address, password)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (name, email, phone, address, password))  # Hash the password ideally
+
         mysql.connection.commit()
         cursor.close()
-        return jsonify({"message": "Delivery boy created"}), 201
+
+        return jsonify({"success": True, "message": "Delivery agent registered successfully"}), 201
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 # Get All Delivery Boys
@@ -2097,6 +2121,50 @@ def update_delivery_boy(id):
         return jsonify({"message": "Delivery boy updated"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/delivery_boy_login', methods=['POST'])
+def delivery_boy_login():
+    try:
+        data = request.get_json()
+        phone = data.get('phone')
+        password = data.get('password')
+
+        if not phone or not password:
+            return jsonify({"success": False, "message": "Phone and password are required"}), 400
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM delivery_boys WHERE phone = %s", (phone,))
+        row = cursor.fetchone()
+        columns = [col[0] for col in cursor.description]
+        cursor.close()
+
+        user = dict(zip(columns, row)) if row else None
+
+        if user:
+            if user['password'] == password:
+                # Generate JWT token using app.config['SECRET_KEY']
+                token_payload = {
+                    'delivery_boy_id': user['delivery_boy_id'],
+                    'name': user['name'],
+                    'exp': datetime.utcnow() + timedelta(days=1)  # token valid for 1 day
+                }
+                token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
+
+                return jsonify({
+                    "success": True,
+                    "message": "Login successful",
+                    "token": token,
+                    "delivery_boy_id": user['delivery_boy_id'],
+                    "name": user['name']
+                }), 200
+            else:
+                return jsonify({"success": False, "message": "Incorrect password"}), 401
+        else:
+            return jsonify({"success": False, "message": "Delivery boy not found"}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 # Delete Delivery Boy
@@ -2183,8 +2251,194 @@ def delete_order_otp(id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/delivery_dashboard', methods=['GET'])
+@token_required
+def delivery_dashboard():
+    try:
+        delivery_boy_id = g.user['delivery_boy_id']
+
+        cursor = mysql.connection.cursor()
+
+        # Get delivery agent's name
+        cursor.execute("SELECT name FROM delivery_boys WHERE delivery_boy_id = %s", (delivery_boy_id,))
+        result = cursor.fetchone()
+        agent_name = result[0] if result else "Delivery Agent"
+
+        # Count assigned orders (not delivered)
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM orders 
+            WHERE delivery_boy_id = %s AND status != 'Delivered'
+        """, (delivery_boy_id,))
+        assigned_count = cursor.fetchone()[0]
+
+        # Count delivered orders
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM orders 
+            WHERE delivery_boy_id = %s AND status = 'Delivered'
+        """, (delivery_boy_id,))
+        delivered_count = cursor.fetchone()[0]
+
+        # Fetch assigned orders details
+        cursor.execute("""
+            SELECT 
+                o.order_id,
+                o.total_price,
+                o.status,
+                o.order_date,
+                o.assign,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.email AS customer_email
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            WHERE o.delivery_boy_id = %s AND o.status != 'Delivered'
+            ORDER BY o.order_date DESC
+        """, (delivery_boy_id,))
+        assigned_rows = cursor.fetchall()
+        assigned_columns = [desc[0] for desc in cursor.description]
+        assigned_orders_list = [dict(zip(assigned_columns, row)) for row in assigned_rows]
+
+        # Fetch delivered orders details
+        cursor.execute("""
+            SELECT 
+                o.order_id,
+                o.total_price,
+                o.status,
+                o.order_date,
+                o.assign,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.email AS customer_email
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            WHERE o.delivery_boy_id = %s AND o.status = 'Delivered'
+            ORDER BY o.order_date DESC
+        """, (delivery_boy_id,))
+        delivered_rows = cursor.fetchall()
+        delivered_columns = [desc[0] for desc in cursor.description]
+        delivered_orders_list = [dict(zip(delivered_columns, row)) for row in delivered_rows]
+
+        cursor.close()
+
+        return jsonify({
+            'success': True,
+            'name': agent_name,
+            'assigned_orders': assigned_count,
+            'delivered_orders': delivered_count,
+            'assigned_orders_list': assigned_orders_list,
+            'delivered_orders_list': delivered_orders_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/delivery_orders', methods=['GET'])
+@token_required
+def delivery_orders():
+    try:
+        delivery_boy_id = g.user['delivery_boy_id']
+
+        cursor = mysql.connection.cursor()
+
+        query = """
+            SELECT 
+                o.order_id,
+                o.total_price,
+                o.status,
+                o.order_date,
+                o.assign,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.email AS customer_email
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            WHERE o.delivery_boy_id = %s
+            ORDER BY o.order_date DESC
+        """
+        cursor.execute(query, (delivery_boy_id,))
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        cursor.close()
+
+        orders = [dict(zip(columns, row)) for row in rows]
+
+        return jsonify({
+            "success": True,
+            "orders": orders
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/order_details/<int:order_id>', methods=['GET'])
+@token_required
+def order_details(order_id):
+    try:
+        delivery_boy_id = g.user['delivery_boy_id']
+        cursor = mysql.connection.cursor()
+
+        # Check if the order belongs to the delivery boy
+        order_query = """
+            SELECT 
+                o.order_id,
+                o.total_price,
+                o.status,
+                o.order_date,
+                o.assign,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.email AS customer_email
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            WHERE o.order_id = %s AND o.delivery_boy_id = %s
+        """
+        cursor.execute(order_query, (order_id, delivery_boy_id))
+        order_row = cursor.fetchone()
+
+        if not order_row:
+            return jsonify({
+                "success": False,
+                "message": "Order not found or unauthorized access."
+            }), 404
+
+        order_columns = [desc[0] for desc in cursor.description]
+        order_data = dict(zip(order_columns, order_row))
+
+        # Fetch items in the order
+        items_query = """
+            SELECT 
+                oi.variant_id,
+                oi.quantity,
+                oi.price,
+                (oi.quantity * oi.price) AS total
+            FROM order_items oi
+            WHERE oi.order_id = %s
+        """
+        cursor.execute(items_query, (order_id,))
+        items_rows = cursor.fetchall()
+        items_columns = [desc[0] for desc in cursor.description]
+        items = [dict(zip(items_columns, row)) for row in items_rows]
+
+        cursor.close()
+
+        return jsonify({
+            "success": True,
+            "order": order_data,
+            "items": items
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
 
 

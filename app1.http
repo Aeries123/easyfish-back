@@ -230,7 +230,7 @@ Content-Type: application/json
 
 POST http://127.0.0.1:5000/api/orders
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY3VzdG9tZXIiLCJjdXN0b21lcl9pZCI6MjgsImN1c3RvbWVyX25hbWUiOiJKb2huIiwidXNlcl9pZCI6MzgsImV4cCI6MTc0NDExOTU1MH0.bQH0bcZ_FgkW0Cx4HpvXn6Jrhp_5Yt7K1zCk9hi8IMw
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxNCwibmFtZSI6Im5hbmR1IiwicGhvbmUiOiI3MjQ1NTYzNDEyIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ0MjU1NjA4fQ.C1KCKL6q-LBW8TrxY8UsaLVqL1iQFouKl8IQdGKpq5E
 
 {
   "total_price": 1500,
@@ -282,7 +282,7 @@ DELETE http://127.0.0.1:5000/api/orders/2
 
 
 ###
-GET http://127.0.0.1:5000/api/orders/5
+GET http://127.0.0.1:5000/api/orders/19
 
 ###
 
@@ -384,3 +384,19 @@ Content-Type: application/json
 ###
 
 GET http://127.0.0.1:5000/api/delivery_boys
+
+###
+
+POST http://localhost:5000/api/delivery_boy_login
+Content-Type: application/json
+
+{
+  "phone": "7995357141",
+  "password": "password"
+}
+###
+
+GET http://localhost:5000/api/delivery_dashboard
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZWxpdmVyeV9ib3lfaWQiOjQsIm5hbWUiOiJNYWhlc2giLCJleHAiOjE3NDQzMzk2NzJ9.vyh4_9VMo_G3EsBd0jlGzLBRa6lCMxLm42SofUqmSKw
+
+
